@@ -2,15 +2,21 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
-import pycountry
+
+# Optional: pycountry for ISO Alpha-3 codes
+try:
+    import pycountry
+    PYCOUNTRY_AVAILABLE = True
+except ModuleNotFoundError:
+    PYCOUNTRY_AVAILABLE = False
 
 # === Page Setup ===
 st.set_page_config(page_title="🌍 Global Population Dashboard", layout="wide")
-st.title("🌍 Global Population Analysis Dashboard (v7.1 - Stable)")
+st.title("🌍 Global Population Analysis Dashboard (Final v1)")
 
 # === Upload CSV File ===
 st.sidebar.header("📂 Upload Data")
-uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type=["csv"], key="uploader_main")
+uploaded_file = st.sidebar.file_uploader("Choose a CSV file", type=["csv"], key="main_uploader")
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
@@ -33,29 +39,25 @@ df.columns = (
     .str.lower()
 )
 
-# === Continent Mapping ===
-continent_map = { ... }  # keep your same continent_map content here
+# === Continent Mapping (fallback if pycountry not used) ===
+continent_map = {
+    # simplified mapping
+    "Asia": ["Afghanistan", "China", "India", "Japan", "Iran", "Iraq", "Israel", "Pakistan", "Nepal", "Thailand"],
+    "Europe": ["France", "Germany", "Italy", "United Kingdom", "Spain"],
+    "Africa": ["Nigeria", "Egypt", "South Africa", "Kenya"],
+    "North America": ["United States", "Canada", "Mexico"],
+    "South America": ["Brazil", "Argentina", "Colombia"],
+    "Oceania": ["Australia", "New Zealand", "Fiji"]
+}
+
+def map_continent(country_name):
+    for continent, countries in continent_map.items():
+        if country_name in countries:
+            return continent
+    return "Other"
 
 if "continent" not in df.columns:
-   import pycountry_convert as pc
-
-def get_continent(country):
-    try:
-        code = pc.country_name_to_country_alpha2(country)
-        continent = pc.country_alpha2_to_continent_code(code)
-        return {
-            "AF": "Africa",
-            "AS": "Asia",
-            "EU": "Europe",
-            "NA": "North America",
-            "SA": "South America",
-            "OC": "Oceania"
-        }[continent]
-    except:
-        return "Other"
-
-df["continent"] = df["country"].apply(get_continent)
-
+    df["continent"] = df["country"].apply(map_continent)
 
 # === Sidebar Filters ===
 st.sidebar.header("🎯 Filter Options")
@@ -75,7 +77,7 @@ numeric_columns = filtered_df.select_dtypes(include=["float64", "int64"]).column
 
 # === Bar Chart ===
 st.subheader("📈 Bar Chart")
-y_axis_bar = st.selectbox("Select numeric column for Bar Chart", numeric_columns, index=0, key="bar_chart_y")
+y_axis_bar = st.selectbox("Select numeric column for Bar Chart", numeric_columns, index=0, key="bar_chart")
 fig_bar = px.bar(
     filtered_df,
     x="country",
@@ -87,7 +89,7 @@ st.plotly_chart(fig_bar, use_container_width=True)
 
 # === Line Chart ===
 st.subheader("📊 Line Chart")
-y_axis_line = st.selectbox("Select numeric column for Line Chart", numeric_columns, index=0, key="line_chart_y")
+y_axis_line = st.selectbox("Select numeric column for Line Chart", numeric_columns, index=0, key="line_chart")
 fig_line = px.line(
     filtered_df,
     x="country",
@@ -113,50 +115,48 @@ else:
     st.info("Not enough numeric columns for correlation heatmap.")
 
 # === World Map ===
-st.subheader("🗺️ World Map (Enhanced Hover Info)")
-map_metric = st.selectbox("Select numeric column for Map color", numeric_columns, index=0, key="map_metric_select")
+st.subheader("🗺️ World Map")
+map_metric = st.selectbox("Select numeric column for Map color", numeric_columns, index=0, key="map_metric")
 hover_metrics = st.multiselect(
     "Select additional numeric columns for hover info",
     options=[col for col in numeric_columns if col != map_metric],
     default=[],
-    key="hover_metrics_select"
+    key="map_hover"
 )
 
-# --- ISO Alpha-3 codes ---
-def get_iso3(country_name):
-    try:
-        return pycountry.countries.lookup(country_name).alpha_3
-    except:
-        return None
+if PYCOUNTRY_AVAILABLE:
+    def get_iso3(country_name):
+        try:
+            return pycountry.countries.lookup(country_name).alpha_3
+        except:
+            return None
+    map_df = filtered_df.copy()
+    map_df["iso_alpha"] = map_df["country"].apply(get_iso3)
+    map_df = map_df.dropna(subset=["iso_alpha"])
 
-map_df = filtered_df.copy()
-map_df["iso_alpha"] = map_df["country"].apply(get_iso3)
-map_df = map_df.dropna(subset=["iso_alpha"])
+    display_cols = [map_metric] + hover_metrics
+    map_df_display = map_df.copy()
+    for col in display_cols:
+        if col.endswith("_pct"):
+            map_df_display[col + "_display"] = map_df_display[col].map(lambda x: f"{x:.2f}%")
+        else:
+            map_df_display[col + "_display"] = map_df_display[col].map(lambda x: f"{int(x):,}")
 
-# --- Format hover values ---
-display_cols = [map_metric] + hover_metrics
-map_df_display = map_df.copy()
-for col in display_cols:
-    if col.endswith("_pct"):
-        map_df_display[col + "_display"] = map_df_display[col].map(lambda x: f"{x:.2f}%")
-    else:
-        map_df_display[col + "_display"] = map_df_display[col].map(lambda x: f"{int(x):,}")
+    customdata = map_df_display[[col + "_display" for col in display_cols]].values
 
-customdata = map_df_display[[col + "_display" for col in display_cols]].values
+    hover_template = "<b>%{hovertext}</b><br><br>"
+    hover_template += f"{map_metric.replace('_',' ').title()}: %{customdata[0]}<br>"
+    for idx, col in enumerate(hover_metrics):
+        hover_template += f"{col.replace('_',' ').title()}: %{customdata[{idx+1}]}<br>"
 
-# --- Build hover template ---
-hover_template = "<b>%{hovertext}</b><br><br>"
-hover_template += f"{map_metric.replace('_',' ').title()}: %{customdata[0]}<br>"
-for idx, col in enumerate(hover_metrics):
-    hover_template += f"{col.replace('_',' ').title()}: %{customdata[{idx+1}]}<br>"
-
-# --- Create choropleth ---
-fig_map = px.choropleth(
-    map_df,
-    locations="iso_alpha",
-    color=map_metric,
-    hover_name="country",
-    color_continuous_scale="Viridis"
-)
-fig_map.update_traces(hovertemplate=hover_template, hovertext=map_df["country"], customdata=customdata)
-st.plotly_chart(fig_map, use_container_width=True)
+    fig_map = px.choropleth(
+        map_df,
+        locations="iso_alpha",
+        color=map_metric,
+        hover_name="country",
+        color_continuous_scale="Viridis"
+    )
+    fig_map.update_traces(hovertemplate=hover_template, hovertext=map_df["country"], customdata=customdata)
+    st.plotly_chart(fig_map, use_container_width=True)
+else:
+    st.info("pycountry not installed: World Map disabled. Install it with `pip install pycountry`")
