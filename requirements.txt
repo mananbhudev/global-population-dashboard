@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 streamlit
 plotly
 pandas
@@ -9,15 +9,4 @@ git commit -m "Initial commit - Streamlit population dashboard"
 git branch -M main
 git remote add origin https://github.com/<your-username>/population-dashboard.git
 git push -u origin main
-=======
-streamlit
-plotly
-pandas
-pycountry
-git init
-git add .
-git commit -m "Initial commit - Streamlit population dashboard"
-git branch -M main
-git remote add origin https://github.com/<your-username>/population-dashboard.git
-git push -u origin main
->>>>>>> 60bc944f62619a8fd865a6f4b03a11f0b1c38f44
+
