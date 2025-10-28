@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -192,7 +192,7 @@ fig_map = px.choropleth(
 )
 fig_map.update_traces(hovertemplate=hover_template, hovertext=map_df["country"], customdata=customdata)
 st.plotly_chart(fig_map, use_container_width=True)
-=======
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -386,4 +386,4 @@ fig_map = px.choropleth(
 )
 fig_map.update_traces(hovertemplate=hover_template, hovertext=map_df["country"], customdata=customdata)
 st.plotly_chart(fig_map, use_container_width=True)
->>>>>>> 60bc944f62619a8fd865a6f4b03a11f0b1c38f44
+
