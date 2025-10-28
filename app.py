@@ -37,7 +37,25 @@ df.columns = (
 continent_map = { ... }  # keep your same continent_map content here
 
 if "continent" not in df.columns:
-    df["continent"] = df["country"].map(continent_map).fillna("Other")
+   import pycountry_convert as pc
+
+def get_continent(country):
+    try:
+        code = pc.country_name_to_country_alpha2(country)
+        continent = pc.country_alpha2_to_continent_code(code)
+        return {
+            "AF": "Africa",
+            "AS": "Asia",
+            "EU": "Europe",
+            "NA": "North America",
+            "SA": "South America",
+            "OC": "Oceania"
+        }[continent]
+    except:
+        return "Other"
+
+df["continent"] = df["country"].apply(get_continent)
+
 
 # === Sidebar Filters ===
 st.sidebar.header("🎯 Filter Options")
